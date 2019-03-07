@@ -2,11 +2,11 @@
 class TemikaXML:
     """
     Class representing the Temika XML
-    
+
     To use simply inherit from this class and use the functions provided
-    
+
     Override output to change where the xml is saved.
-    
+
     TODO:
         camera settings
         switching filters
@@ -14,31 +14,36 @@ class TemikaXML:
         more temika options
         better documentation
     """
+
+    def __init__(self):
+        self.opening()
+        self.open_tag='temika'
+
     def output(self, txt):
         print(txt)
-    
+
     def comment(self, txt):
         self.output(f"<!-- {txt} -->")
-    
+
     def opening(self):
         self.output("<temika>")
-    
+
     def closing(self):
         self.output("</temika>")
-    
+
     def move_xy(self, distance, period, axis='x', mode='relative'):
         self.output('<xystage axis="{}">'.format(axis))
         self.output('<enable>ON</enable>')
         self.output(f'<move_{mode}>{distance:.3f} {period}</move_{mode}>')
-        self.output('</xystage>')  
-    
+        self.output('</xystage>')
+
     def move_z(self, distance, period, mode='relative'):
         self.output('<eclipsetie>')
         self.output('<zdrive_move_{}>{:.3f} {}</zdrive_move_{}>'.format(
                     mode, distance, period, mode))
         self.output("</eclipsetie>")
-    
-    
+
+
     def move_relative(self, vec, period):
         """
         Take a 2D or 3D np array, move xy stage and z axis by the values
@@ -63,8 +68,8 @@ class TemikaXML:
         self.output('<number channel="{}">{}</number>'.format(channel, led))
         self.output(f'<enable channel="{channel}">ON</enable>')
         self.output('</multiled>')
-        
-        
+
+
     def _sec_to_timestring(self, secs):
         hours = int(secs // 3600)
         secs %= 3600
@@ -82,20 +87,30 @@ class TemikaXML:
             self.output(f'<sleep timestamp="{from_timestamp}">{timestring}</sleep>')
         else:
             self.output(f'<sleep>{timestring}</sleep>')
-    
+
     def set_name(self, basename, append="DATE"):
         self.output("<save>")
         self.output(f"<basename>{basename}</basename>")
         if append:
             self.output(f"<append>{append}</append>")
         self.output("</save>")
-        
+
+    def open_camera_tag(self, camera="IIDC Point Grey Research Grasshopper3 GS3-U3-23S6M"):
+        self.open_tag='camera'
+        self.output(f'<camera name="{camera}">')
+
+    #TODO: keep a proper stack, this assumes only 1 level depth
+    def close_tag(self):
+        tg=self.open_tag
+        self.output(f'</{tg}>')
+        self.open_tag='temika'
+
     def record_start(self, camera="IIDC Point Grey Research Grasshopper3 GS3-U3-23S6M"):
-        self.output(f'<camera name={camera}><record>ON</record></camera>')
-        
+        self._output_camera(camera,'<record>ON</record>');
+
     def record_end(self, camera="IIDC Point Grey Research Grasshopper3 GS3-U3-23S6M"):
-        self.output(f'<camera name={camera}><record>OFF</record></camera>')
-    
+        self._output_camera(camera,'<record>OFF</record>');
+
 
     def light_path(self, light_path="L100"):
         """
@@ -104,22 +119,22 @@ class TemikaXML:
         self.output("<microscope>\n<eclipsetie>")
         self.output(f'<light_path>{light_path}</light_path>')
         self.output("</microscope>\n</eclipsetie>")
-        
+
     def pfs_on(self):
         self.output("<microscope>\n<eclipsetie>")
         self.output('<pfs_enable>ON</pfs_enable>')
         self.output("</microscope>\n</eclipsetie>")
-    
+
     def pfs_off(self):
         self.output("<microscope>\n<eclipsetie>")
         self.output('<pfs_enable>OFF</pfs_enable>')
         self.output("</microscope>\n</eclipsetie>")
-        
+
     def pfs_offset(self, offset):
         self.output("<microscope>\n<eclipsetie>")
         self.output('<pfs_offset>{offset:.3f}</pfs_offset>')
         self.output("</microscope>\n</eclipsetie>")
-        
+
     def wait_for_move(self, axis):
         """
         Wait for the stage to finish moving
@@ -127,3 +142,21 @@ class TemikaXML:
         self.output(f'<microscope><xystage axis="{axis}">')
         self.output('<wait_moving_end></wait_moving_end>')
         self.output('<xystage></microscope>')
+
+    def _output_camera(self, camera, output):
+        """
+        Helper for outputing camera elements
+        """
+        if not self.open_tag=="camera":
+            self.open_camera_tag(camera)
+            self.output(output)
+            self.close_tag()
+        else:
+            self.output(output)
+
+    #TODO this is in  the wrong place
+    def set_camera_trigger(self, trig='SOFTWARE', camera="IIDC Point Grey Research Grasshopper3 GS3-U3-23S6M"):
+        self._output_camera(camera, f'<trigger>SOFTWARE</trigger>')
+
+    def trigger_camera(self, camera="IIDC Point Grey Research Grasshopper3 GS3-U3-23S6M"):
+        self._output_camera(camera, '<send_trigger></send_trigger>')
