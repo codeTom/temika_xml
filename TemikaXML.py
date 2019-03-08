@@ -32,16 +32,24 @@ class TemikaXML:
         self.output("</temika>")
 
     def move_xy(self, distance, period, axis='x', mode='relative'):
+        opd=False        
+        if not self.open_tag == "microscope":
+            opd=True
+            self.output("<microscope>")
         self.output('<xystage axis="{}">'.format(axis))
         self.output('<enable>ON</enable>')
         self.output(f'<move_{mode}>{distance:.3f} {period}</move_{mode}>')
         self.output('</xystage>')
+        if opd:
+            self.output("</microscope>")
 
     def move_z(self, distance, period, mode='relative'):
-        self.output('<eclipsetie>')
-        self.output('<zdrive_move_{}>{:.3f} {}</zdrive_move_{}>'.format(
-                    mode, distance, period, mode))
-        self.output("</eclipsetie>")
+        if mode not in ['relative', 'absolute']:
+            print(f"INVALID mode {mode}")
+            exit(-1)
+        self.output('<microscope><eclipsetie>')
+        self.output(f'<zdrive_move_{mode}>{distance:.3f} {period}'+f'</zdrive_move_{mode}>')
+        self.output("</eclipsetie></microscope>")
 
 
     def move_relative(self, vec, period):
@@ -54,7 +62,7 @@ class TemikaXML:
         if vec[1] != 0:
             self.move_xy(vec[1], period, 'y')
         if vec.shape[0] == 3 and vec[2] != 0:
-            self.move_z(vec[2],period, 'z')
+            self.move_z(vec[2],period, 'relative')
 
     def set_led(self, channel, led, brightness):
         """
@@ -141,7 +149,7 @@ class TemikaXML:
         """
         self.output(f'<microscope><xystage axis="{axis}">')
         self.output('<wait_moving_end></wait_moving_end>')
-        self.output('<xystage></microscope>')
+        self.output('</xystage></microscope>')
 
     def _output_camera(self, camera, output):
         """
@@ -156,7 +164,8 @@ class TemikaXML:
 
     #TODO this is in  the wrong place
     def set_camera_trigger(self, trig='SOFTWARE', camera="IIDC Point Grey Research Grasshopper3 GS3-U3-23S6M"):
-        self._output_camera(camera, f'<trigger>SOFTWARE</trigger>')
+        self._output_camera(camera,'')
+        #self._output_camera(camera, f'<trigger>SOFTWARE</trigger>')
 
     def trigger_camera(self, camera="IIDC Point Grey Research Grasshopper3 GS3-U3-23S6M"):
         self._output_camera(camera, '<send_trigger></send_trigger>')
